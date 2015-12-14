@@ -1,0 +1,109 @@
+---
+title: "Predictive Machine Learning Course Project"
+author: "Jing Wei Chan"
+date: "14 December 2015"
+output: html_document
+---
+## Executive Summary
+
+In this project, the data is obtained from accelerometers on the belt, forearm, arm, and dumbell of 6 participants who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is to predict the manner in which they did the exercise. 
+
+We will first perform some data exploration to determine a suitable prediction model. We will then perform the prediction with the chosen model on the training set and determine its accuracy against the testing set.
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data Exploration
+
+We will first download the datasets and load them.
+
+The training and testing data are taken from the following links: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+## Load datasets
+raw_training <- read.csv('./data/pml-training.csv', header = TRUE)
+raw_testing <- read.csv('./data/pml-testing.csv', header = TRUE)
+
+## Summary of dataset
+summary(raw_training)
+```
+
+## Data Cleaning
+
+From the summary, we can see that there are columns containing NA or empty values. These columns will be removed from the dataset as they will affect the prediction. 
+
+We will also remove the following columns as they are used for indexing or are raw values: X, raw_timestamp_part_1, raw_timestamp_part_2.
+
+```{r}
+## Remove columns with NA values
+clean_training <- raw_training[, !(colSums(is.na(raw_training)) > 0)]
+
+## Remove columns with empty values
+clean_training <- clean_training[, !(colSums(clean_training == "#DIV/0!") > 0)]
+
+## Remove additional columns
+clean_training <- clean_training[,-which(colnames(clean_training) %in% c("X", "raw_timestamp_part_1", "raw_timestamp_part_2"))]
+
+names(clean_training)
+```
+
+The number of features are now reduced to 56, excluding classe. The same cleaning will also be performed on the testing set.
+
+```{r}
+## Remove columns with NA values
+clean_testing <- raw_testing[, !(colSums(is.na(raw_testing)) > 0)]
+
+## Remove columns with empty values
+clean_testng <- clean_testing[, !(colSums(clean_testing == "#DIV/0!") > 0)]
+
+## Remove additional columns
+clean_testing <- clean_testing[,-which(colnames(clean_testing) %in% c("X", "raw_timestamp_part_1", "raw_timestamp_part_2"))]
+```
+
+## Cross-Validation and Model
+
+The model that will be used is random forests with k-fold cross validation consisting of 10 folds.
+
+```{r cache = TRUE}
+library(caret)
+set.seed(13579)
+
+modFit <- train(classe ~ ., data = clean_training, method = "rf", trControl = trainControl(method = "cv", number = 10))
+
+max(modFit$results$Accuracy)
+```
+
+As seen, the accuracy of the model on the training data is 99.888%.
+
+## Prediction on Testing Set
+
+```{r}
+pred <- predict(modFit, newdata = clean_testing)
+
+pred
+```
+
+The above shows the results from the testing data.
+
+## Assignment Submission
+
+The below function is given in the course website for submission.
+
+```{r}
+answers <- data.frame(lapply(pred, as.character), stringsAsFactors=FALSE)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+```
+
+
